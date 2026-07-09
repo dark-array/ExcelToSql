@@ -1,0 +1,16 @@
+﻿@page
+@model ErrorModel
+@{
+    ViewData["Title"] = "Error";
+}
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="h4">Ocurrió un error</h1>
+        @if (Model.ShowRequestId)
+        {
+            <p class="text-muted">Request ID: <code>@Model.RequestId</code></p>
+        }
+        <a class="btn btn-primary" asp-page="/Index">Volver al inicio</a>
+    </div>
+</div>
