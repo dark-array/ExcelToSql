@@ -1,0 +1,21 @@
+@model ExcelToSql.Pages.IndexModel
+
+<input type="hidden" asp-for="EditorIndex" />
+@for (var s = 0; s < Model.Input.Sheets.Count; s++)
+{
+    <input type="hidden" asp-for="Input.Sheets[s].Included" />
+    <input type="hidden" asp-for="Input.Sheets[s].SheetName" />
+    <input type="hidden" asp-for="Input.Sheets[s].TableName" />
+    <input type="hidden" asp-for="Input.Sheets[s].IdentityColumn" />
+    @for (var c = 0; c < Model.Input.Sheets[s].Columns.Count; c++)
+    {
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].Selected" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].OriginalName" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].SqlName" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].DataType" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].Length" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].Precision" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].Scale" />
+        <input type="hidden" asp-for="Input.Sheets[s].Columns[c].StripChars" />
+    }
+}

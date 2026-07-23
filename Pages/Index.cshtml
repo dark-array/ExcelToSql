@@ -1,0 +1,315 @@
+﻿@page
+@model ExcelToSql.Pages.IndexModel
+@using ExcelToSql.Models
+@{
+    ViewData["Title"] = "Convertir";
+}
+
+<div class="mb-3">
+    <h1 class="h3 mb-1">Excel → SQL</h1>
+    <p class="text-muted mb-0">Sube un Excel o CSV y genera <strong>CREATE TABLE</strong> / <strong>INSERT</strong> para PostgreSQL, SQL Server, MySQL, MariaDB u Oracle.</p>
+</div>
+
+<ul class="nav nav-pills mb-3">
+    <li class="nav-item">
+        <span class="nav-link @(Model.Step == "upload" ? "active" : "")">1. Archivo</span>
+    </li>
+    <li class="nav-item">
+        <span class="nav-link @(Model.Step == "configure" ? "active" : Model.Step == "upload" ? "disabled" : "")">2. Opciones</span>
+    </li>
+    <li class="nav-item">
+        <span class="nav-link @(Model.Step == "result" ? "active" : "disabled")">3. SQL</span>
+    </li>
+</ul>
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger">@Model.ErrorMessage</div>
+}
+
+@if (Model.Step == "upload")
+{
+    <form method="post" asp-page-handler="Upload" enctype="multipart/form-data" class="card shadow-sm">
+        <div class="card-body">
+            <label class="dropzone" id="dropzone">
+                <input asp-for="Upload" type="file" accept=".xls,.xlsx,.xlsm,.csv,.tsv,.txt" hidden />
+                <strong>Arrastra el archivo aquí</strong>
+                <span class="text-muted">o haz clic para seleccionarlo</span>
+                <small class="text-muted">xls, xlsx, xlsm, csv, tsv · máximo 50 MB</small>
+                <em id="file-name" class="text-primary"></em>
+            </label>
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" class="btn btn-primary">Leer archivo</button>
+            </div>
+        </div>
+    </form>
+}
+
+@if (Model.Step == "configure" && Model.Document != null)
+{
+    <form method="post" id="config-form">
+        <partial name="_SheetListHidden" />
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>
+                    Archivo: <strong>@Model.FileName</strong>
+                    <span class="badge text-bg-secondary ms-1">@Model.Document.Sheets.Count hoja(s)</span>
+                </span>
+                <button type="submit" class="btn btn-link btn-sm py-0" asp-page-handler="Reset">Cambiar archivo</button>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 bg-white">
+                            <div class="fw-semibold small mb-2">Motor</div>
+                            <div class="row g-1">
+                                <div class="col-6"><label class="form-check"><input class="form-check-input" asp-for="Input.Engine" type="radio" value="@DatabaseEngine.Postgres" /> <span class="form-check-label">PostgreSQL</span></label></div>
+                                <div class="col-6"><label class="form-check"><input class="form-check-input" asp-for="Input.Engine" type="radio" value="@DatabaseEngine.SqlServer" /> <span class="form-check-label">SQL Server</span></label></div>
+                                <div class="col-6"><label class="form-check"><input class="form-check-input" asp-for="Input.Engine" type="radio" value="@DatabaseEngine.MySql" /> <span class="form-check-label">MySQL</span></label></div>
+                                <div class="col-6"><label class="form-check"><input class="form-check-input" asp-for="Input.Engine" type="radio" value="@DatabaseEngine.MariaDb" /> <span class="form-check-label">MariaDB</span></label></div>
+                                <div class="col-6"><label class="form-check"><input class="form-check-input" asp-for="Input.Engine" type="radio" value="@DatabaseEngine.Oracle" /> <span class="form-check-label">Oracle</span></label></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 bg-white">
+                            <div class="fw-semibold small mb-2">Salida</div>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.Action" type="radio" value="@SqlAction.Both" /> <span class="form-check-label">Tabla + inserts</span></label>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.Action" type="radio" value="@SqlAction.CreateTable" /> <span class="form-check-label">Solo CREATE TABLE</span></label>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.Action" type="radio" value="@SqlAction.Insert" /> <span class="form-check-label">Solo INSERT</span></label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 h-100 bg-white">
+                            <div class="fw-semibold small mb-2">Limpieza</div>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.FirstRowIsHeader" /> <span class="form-check-label">Primera fila son encabezados</span></label>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.SkipBlankRows" /> <span class="form-check-label">Omitir filas en blanco</span></label>
+                            <label class="form-check"><input class="form-check-input" asp-for="Input.TrimWhitespace" /> <span class="form-check-label">Recortar espacios</span></label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-outline-secondary btn-sm mt-3" asp-page-handler="Refresh">Aplicar motor / encabezados</button>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header">1. Elegir hoja</div>
+            <div class="card-body">
+                @if (Model.UnusedSheets.Any())
+                {
+                    <div class="d-flex gap-2 flex-wrap align-items-center">
+                        <select asp-for="SelectedSheetName" class="form-select flex-grow-1 sheet-select">
+                            <option value="">Seleccione una hoja...</option>
+                            @foreach (var sheet in Model.UnusedSheets)
+                            {
+                                <option value="@sheet.Name">@sheet.Name (@sheet.Rows.Count filas, @sheet.Headers.Count columnas)</option>
+                            }
+                        </select>
+                        <button type="submit" class="btn btn-outline-primary" asp-page-handler="LoadSheet">Cargar hoja</button>
+                    </div>
+                    <p class="text-muted small mb-0 mt-2">Quedan @Model.UnusedSheets.Count() hoja(s) por agregar.</p>
+                }
+                else if (!string.IsNullOrWhiteSpace(Model.Editor.SheetName))
+                {
+                    <p class="text-muted mb-0">Guarde o cancele la hoja actual para elegir otra.</p>
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Todas las hojas del archivo ya están en la lista.</p>
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.Editor.SheetName))
+        {
+            var sheetDoc = Model.EditorSheet;
+            <div class="card shadow-sm mb-3 sheet-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        2. Configurar: <strong>@Model.Editor.SheetName</strong>
+                        <span class="badge @(Model.IsEditing ? "text-bg-info" : "text-bg-success") ms-1">@(Model.IsEditing ? "editando" : "nueva")</span>
+                        <span class="badge text-bg-light text-dark">@(sheetDoc?.Rows.Count ?? 0) filas</span>
+                    </span>
+                </div>
+                <div class="card-body">
+                    <input type="hidden" asp-for="Editor.SheetName" />
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Tabla</label>
+                            <input asp-for="Editor.TableName" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small mb-1">Identity / autoincrement</label>
+                            <select asp-for="Editor.IdentityColumn" class="form-select">
+                                <option value="">(ninguna)</option>
+                                @foreach (var col in Model.Editor.Columns)
+                                {
+                                    <option value="@col.OriginalName">@col.OriginalName</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm toggle-cols">Todas / ninguna</button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="open-preview" data-sheet="@Model.Editor.SheetName">Ver datos</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive border rounded">
+                        <table class="table table-sm table-hover align-middle mb-0 cols">
+                            <thead class="table-light">
+                                <tr>
+                                    <th></th>
+                                    <th>Columna</th>
+                                    <th>Nombre SQL</th>
+                                    <th>Tipo</th>
+                                    <th>Longitud</th>
+                                    <th>Precisión</th>
+                                    <th>Escala</th>
+                                    <th>Quitar caracteres</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for (var c = 0; c < Model.Editor.Columns.Count; c++)
+                            {
+                                <tr>
+                                    <td>
+                                        <input asp-for="Editor.Columns[c].Selected" class="form-check-input col-check" />
+                                        <input type="hidden" asp-for="Editor.Columns[c].OriginalName" />
+                                    </td>
+                                    <td>@Model.Editor.Columns[c].OriginalName</td>
+                                    <td><input asp-for="Editor.Columns[c].SqlName" class="form-control form-control-sm" /></td>
+                                    <td>
+                                        <select asp-for="Editor.Columns[c].DataType" class="form-select form-select-sm">
+                                            <option value="@LogicalType.Integer">Entero</option>
+                                            <option value="@LogicalType.BigInteger">Entero largo</option>
+                                            <option value="@LogicalType.Decimal">Decimal</option>
+                                            <option value="@LogicalType.Boolean">Booleano</option>
+                                            <option value="@LogicalType.Date">Fecha</option>
+                                            <option value="@LogicalType.DateTime">Fecha/hora</option>
+                                            <option value="@LogicalType.Text">Texto</option>
+                                            <option value="@LogicalType.LongText">Texto largo</option>
+                                        </select>
+                                    </td>
+                                    <td><input asp-for="Editor.Columns[c].Length" class="form-control form-control-sm" /></td>
+                                    <td><input asp-for="Editor.Columns[c].Precision" class="form-control form-control-sm" /></td>
+                                    <td><input asp-for="Editor.Columns[c].Scale" class="form-control form-control-sm" /></td>
+                                    <td>
+                                        <input asp-for="Editor.Columns[c].StripChars" class="form-control form-control-sm"
+                                               placeholder="[, ]" title="Caracteres a quitar. Ejemplo: Activo[, ], Inactivo[, ]" />
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0">Quitar caracteres: lo que va entre <code>[ ]</code> se elimina de la celda, incluidos los corchetes, coma y espacio. Ejemplo: <code>Activo[, ], Inactivo[, ]</code>. Texto completo: <code>"N/A"</code>. Use <strong>Ver datos</strong> para ver el resultado.</p>
+                    <div class="d-flex justify-content-end gap-2 mt-3">
+                        <button type="submit" class="btn btn-outline-secondary" asp-page-handler="CancelEditor">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" asp-page-handler="SaveSheet">Guardar en lista</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex align-items-center gap-2">
+                3. Lista para generar
+                <span class="badge text-bg-primary">@Model.Input.Sheets.Count</span>
+            </div>
+            <div class="card-body">
+                @if (Model.Input.Sheets.Count == 0)
+                {
+                    <p class="text-muted mb-0">Todavía no hay hojas guardadas. Cargue una, configúrela y pulse Guardar en lista.</p>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Hoja</th>
+                                    <th>Tabla</th>
+                                    <th>Columnas</th>
+                                    <th>Filas</th>
+                                    <th>Identity</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Input.Sheets.Count; i++)
+                            {
+                                var item = Model.Input.Sheets[i];
+                                var data = Model.Document.Sheets.FirstOrDefault(s =>
+                                    string.Equals(s.Name, item.SheetName, StringComparison.OrdinalIgnoreCase));
+                                <tr class="@(Model.EditorIndex == i ? "table-info" : "")">
+                                    <td>@(i + 1)</td>
+                                    <td>@item.SheetName</td>
+                                    <td>@item.TableName</td>
+                                    <td>@item.Columns.Count(c => c.Selected) / @item.Columns.Count</td>
+                                    <td>@(data?.Rows.Count ?? 0)</td>
+                                    <td>@(string.IsNullOrWhiteSpace(item.IdentityColumn) ? "—" : item.IdentityColumn)</td>
+                                    <td class="text-end text-nowrap">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm preview-saved" data-index="@i" data-sheet="@item.SheetName">Ver</button>
+                                        <button type="submit" class="btn btn-outline-primary btn-sm" asp-page-handler="EditSheet" name="ItemIndex" value="@i">Editar</button>
+                                        <button type="submit" class="btn btn-outline-danger btn-sm" asp-page-handler="RemoveSheet" name="ItemIndex" value="@i">Eliminar</button>
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end">
+            @{
+                var canGenerate = Model.Input.Sheets.Count > 0 || !string.IsNullOrWhiteSpace(Model.Editor.SheetName);
+            }
+            <button type="submit" class="btn btn-primary" asp-page-handler="Generate" disabled="@(!canGenerate)">
+                Generar SQL
+            </button>
+        </div>
+    </form>
+
+    <script id="preview-data" type="application/json">@Html.Raw(Model.PreviewJson)</script>
+    <div id="data-modal" class="preview-overlay" hidden>
+        <div class="card shadow preview-card">
+            <div class="card-header d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 class="h6 mb-1" id="data-modal-title">Datos</h3>
+                    <p id="data-modal-meta" class="text-muted small mb-0"></p>
+                </div>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="data-modal-close">Cerrar</button>
+            </div>
+            <div class="card-body p-0 preview-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover mb-0" id="data-modal-table"></table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.Step == "result")
+{
+    <form method="post" class="card shadow-sm">
+        <partial name="_FormHidden" />
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>Script generado para <strong>@Model.FileName</strong> · @Model.Input.Sheets.Count hoja(s)</span>
+            <span>
+                <button type="submit" class="btn btn-outline-secondary btn-sm" asp-page-handler="Adjust">Ajustar opciones</button>
+                <button type="submit" class="btn btn-link btn-sm" asp-page-handler="Reset">Nuevo archivo</button>
+            </span>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="copy-sql">Copiar</button>
+                <a class="btn btn-primary btn-sm" asp-page-handler="Download">Descargar .sql</a>
+            </div>
+            <pre id="sql-output" class="sql-box mb-0">@Model.GeneratedSql</pre>
+        </div>
+    </form>
+}

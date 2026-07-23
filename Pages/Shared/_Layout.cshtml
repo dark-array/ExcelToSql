@@ -1,0 +1,26 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · ExcelToSql</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand fw-semibold" asp-page="/Index">ExcelToSql</a>
+            <span class="navbar-text small">PostgreSQL · SQL Server · MySQL · MariaDB · Oracle</span>
+        </div>
+    </nav>
+    <main class="container py-4">
+        @RenderBody()
+    </main>
+    <footer class="text-center text-muted small pb-4">Monolito local · no envía archivos a un servidor externo</footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
