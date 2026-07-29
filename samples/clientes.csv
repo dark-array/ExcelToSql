@@ -1,0 +1,6 @@
+id,nombre,fecha_ingreso,activo,salario,notas
+1,Ana Pérez,2024-01-15,si,1250.50,Cliente frecuente
+2,Luis Mora,2024-03-02,si,980,
+3,,,no,1100,Fila casi vacía
+4,María Solís,2024-07-22,si,1500.75,Contrato anual
+5,  Juan   Rojas  ,2024-09-01,no,890.00,Espacios extra
